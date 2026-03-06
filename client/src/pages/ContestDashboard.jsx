@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE = "http://import.meta.env.VITE_API_URL || "http://localhost:5000"";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const C = {
   bg: "#080c10", surface: "#0d1117", panel: "#111720", card: "#161d28",

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { COLORS, deriveStatus, StatusBadge } from "../contestData";
 import ContestDetail from "./ContestDetail";
 
-const API_BASE = "http://import.meta.env.VITE_API_URL || "http://localhost:5000"";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 function ContestCard({ contest, onClick, active }) {
   const durationMin = Math.floor(((contest.endTime - contest.startTime) || 0) / 60000);
