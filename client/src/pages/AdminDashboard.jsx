@@ -157,7 +157,6 @@ const CSS = `
 
 
 function parseCSV(text) {
-  // ── Proper CSV parser that handles quoted multiline fields ──
   function parseRow(text, start) {
     const cols = [];
     let cur = "", inQ = false, i = start;
@@ -165,7 +164,7 @@ function parseCSV(text) {
       const c = text[i];
       if (inQ) {
         if (c === '"') {
-          if (text[i+1] === '"') { cur += '"'; i += 2; continue; } // escaped quote
+          if (text[i+1] === '"') { cur += '"'; i += 2; continue; }
           inQ = false; i++; continue;
         }
         cur += c; i++; continue;
@@ -185,21 +184,18 @@ function parseCSV(text) {
 
   const errors = [];
   const REQUIRED = ["title", "difficulty", "description"];
-
-  // Parse header
   const firstRow = parseRow(text, 0);
   const headers = firstRow.cols.map(h => h.trim().toLowerCase());
   const missing = REQUIRED.filter(r => !headers.includes(r));
   if (missing.length) errors.push(`Missing required columns: ${missing.join(", ")}`);
 
-  // Parse all rows
   const rows = [];
   let pos = firstRow.next;
   let rowIndex = 2;
   while (pos < text.length) {
     const { cols, next } = parseRow(text, pos);
     pos = next;
-    if (cols.every(c => !c.trim())) continue; // skip blank rows
+    if (cols.every(c => !c.trim())) continue;
     const row = {};
     headers.forEach((h, j) => row[h] = (cols[j] || "").trim());
     row._row = rowIndex++;
@@ -227,7 +223,6 @@ function BulkImportModal({ onClose, onImported, showToast }) {
   const fileRef = useRef(null);
   const logRef  = useRef(null);
 
-  // Auto-scroll log
   useEffect(() => { if(logRef.current) logRef.current.scrollTop=logRef.current.scrollHeight; }, [importLog]);
 
   const processFile = (f) => {
@@ -254,23 +249,23 @@ function BulkImportModal({ onClose, onImported, showToast }) {
       const row = valid[i];
       try {
         await API.post("/admin/problems/bulk-single", {
-  title:           row.title,
-  difficulty:      row.difficulty,
-  description:     row.description,
-  topics:          row.topics ? row.topics.split(";").map(t => t.trim()) : [],
-  constraints:     row.constraints     || "",
-  sample_input_1:  row.sample_input_1  || "",
-  sample_output_1: row.sample_output_1 || "",
-  sample_input_2:  row.sample_input_2  || "",
-  sample_output_2: row.sample_output_2 || "",
-  hidden_input_1:  row.hidden_input_1  || "",
-  hidden_output_1: row.hidden_output_1 || "",
-  hidden_input_2:  row.hidden_input_2  || "",
-  hidden_output_2: row.hidden_output_2 || "",
-  hidden_input_3:  row.hidden_input_3  || "",
-  hidden_output_3: row.hidden_output_3 || "",
-  modelSolution:   row.modelsolution   || "",
-});
+          title:           row.title,
+          difficulty:      row.difficulty,
+          description:     row.description,
+          topics:          row.topics ? row.topics.split(";").map(t => t.trim()) : [],
+          constraints:     row.constraints     || "",
+          sample_input_1:  row.sample_input_1  || "",
+          sample_output_1: row.sample_output_1 || "",
+          sample_input_2:  row.sample_input_2  || "",
+          sample_output_2: row.sample_output_2 || "",
+          hidden_input_1:  row.hidden_input_1  || "",
+          hidden_output_1: row.hidden_output_1 || "",
+          hidden_input_2:  row.hidden_input_2  || "",
+          hidden_output_2: row.hidden_output_2 || "",
+          hidden_input_3:  row.hidden_input_3  || "",
+          hidden_output_3: row.hidden_output_3 || "",
+          modelSolution:   row.modelsolution   || "",
+        });
         log.push({ title:row.title, ok:true, msg:"Imported" });
       } catch(err) {
         const msg = err?.response?.data?.msg || err?.message || "Failed";
@@ -278,7 +273,7 @@ function BulkImportModal({ onClose, onImported, showToast }) {
       }
       setImportLog([...log]);
       setProgress(Math.round(((i+1)/valid.length)*100));
-      await new Promise(r=>setTimeout(r,120)); // small delay so UI updates
+      await new Promise(r=>setTimeout(r,120));
     }
     const sc = log.filter(l=>l.ok).length;
     setSuccessCount(sc);
@@ -299,8 +294,6 @@ function BulkImportModal({ onClose, onImported, showToast }) {
   return (
     <div className="ad-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <div className="bi-modal">
-
-        {/* Header */}
         <div className="bi-header">
           <div style={{display:"flex",alignItems:"center",gap:14}}>
             <div style={{width:44,height:44,borderRadius:12,background:"linear-gradient(135deg,rgba(0,180,216,0.18),rgba(139,92,246,0.18))",border:"1px solid rgba(0,180,216,0.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>📥</div>
@@ -309,7 +302,6 @@ function BulkImportModal({ onClose, onImported, showToast }) {
               <div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>Upload a CSV to import multiple problems at once</div>
             </div>
           </div>
-          {/* Stage breadcrumb */}
           <div style={{display:"flex",alignItems:"center",gap:6,fontSize:11,color:"var(--muted)"}}>
             {["upload","preview","importing","done"].map((s,i,arr)=>(
               <span key={s} style={{display:"flex",alignItems:"center",gap:6}}>
@@ -325,7 +317,6 @@ function BulkImportModal({ onClose, onImported, showToast }) {
             onMouseLeave={e=>{e.currentTarget.style.borderColor="#1e2d42";e.currentTarget.style.color="var(--muted)";}}>×</button>
         </div>
 
-        {/* ── STAGE: Upload ── */}
         {stage==="upload"&&(
           <div className="bi-body">
             <div className={`bi-dropzone${dragging?" drag":""}`}
@@ -335,20 +326,12 @@ function BulkImportModal({ onClose, onImported, showToast }) {
               onClick={()=>fileRef.current?.click()}>
               <input ref={fileRef} type="file" accept=".csv" onChange={e=>{if(e.target.files[0])processFile(e.target.files[0]);}} style={{display:"none"}}/>
               <div style={{fontSize:48,marginBottom:14}}>{dragging?"📂":"📄"}</div>
-              <div style={{fontSize:16,fontWeight:700,color:"#c8d8f0",marginBottom:6}}>
-                {dragging?"Release to upload":"Drop your CSV file here"}
-              </div>
+              <div style={{fontSize:16,fontWeight:700,color:"#c8d8f0",marginBottom:6}}>{dragging?"Release to upload":"Drop your CSV file here"}</div>
               <div style={{fontSize:13,color:"var(--muted)",marginBottom:16}}>or click to browse · max 10MB</div>
-              <div style={{display:"inline-flex",alignItems:"center",gap:8,padding:"8px 20px",borderRadius:8,background:"rgba(0,180,216,0.1)",border:"1px solid rgba(0,180,216,0.25)",color:"var(--cyan)",fontSize:13,fontWeight:600}}>
-                📎 Select CSV File
-              </div>
+              <div style={{display:"inline-flex",alignItems:"center",gap:8,padding:"8px 20px",borderRadius:8,background:"rgba(0,180,216,0.1)",border:"1px solid rgba(0,180,216,0.25)",color:"var(--cyan)",fontSize:13,fontWeight:600}}>📎 Select CSV File</div>
             </div>
-
-            {/* Format guide */}
             <div style={{background:"#0a1018",border:"1px solid #1a2535",borderRadius:12,padding:18,marginTop:18}}>
-              <div style={{fontSize:12,fontWeight:700,color:"#c8d8f0",marginBottom:12,display:"flex",alignItems:"center",gap:6}}>
-                📋 Required CSV Format
-              </div>
+              <div style={{fontSize:12,fontWeight:700,color:"#c8d8f0",marginBottom:12,display:"flex",alignItems:"center",gap:6}}>📋 Required CSV Format</div>
               <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
                 {[{c:"title",req:true},{c:"difficulty",req:true},{c:"description",req:true},{c:"tags",req:false},{c:"points",req:false},{c:"timeLimit",req:false},{c:"memoryLimit",req:false}].map(({c,req})=>(
                   <span key={c} className="bi-col-tag" style={{color:req?"var(--cyan)":"var(--muted)",background:req?"rgba(0,180,216,0.1)":"#0d1520",border:`1px solid ${req?"rgba(0,180,216,0.3)":"#1a2535"}`}}>
@@ -365,7 +348,6 @@ function BulkImportModal({ onClose, onImported, showToast }) {
                 ))}
               </div>
             </div>
-
             <button onClick={downloadTemplate} style={{width:"100%",marginTop:14,padding:"12px",borderRadius:10,border:"1px solid rgba(34,197,94,0.3)",background:"rgba(34,197,94,0.07)",color:"var(--green)",cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"all 0.15s"}}
               onMouseEnter={e=>{e.currentTarget.style.background="rgba(34,197,94,0.14)";}}
               onMouseLeave={e=>{e.currentTarget.style.background="rgba(34,197,94,0.07)";}}>
@@ -374,10 +356,8 @@ function BulkImportModal({ onClose, onImported, showToast }) {
           </div>
         )}
 
-        {/* ── STAGE: Preview ── */}
         {stage==="preview"&&parsed&&(
           <div className="bi-body" style={{display:"flex",flexDirection:"column",gap:16}}>
-            {/* Stats row */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
               {[{l:"Total Rows",v:parsed.rows.length,c:"var(--cyan)"},{l:"✓ Valid",v:validRows.length,c:"var(--green)"},{l:"✗ Errors",v:invalidRows.length+(parsed.errors.filter(e=>e.startsWith("Missing")).length),c:invalidRows.length?"var(--red)":"var(--muted)"}].map(({l,v,c})=>(
                 <div key={l} className="bi-stat-card">
@@ -386,8 +366,6 @@ function BulkImportModal({ onClose, onImported, showToast }) {
                 </div>
               ))}
             </div>
-
-            {/* Errors */}
             {parsed.errors.length>0&&(
               <div style={{background:"rgba(239,68,68,0.06)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:10,padding:"12px 16px"}}>
                 <div style={{fontSize:12,fontWeight:700,color:"var(--red)",marginBottom:8,display:"flex",gap:6,alignItems:"center"}}>⚠ Validation Issues ({parsed.errors.length})</div>
@@ -398,8 +376,6 @@ function BulkImportModal({ onClose, onImported, showToast }) {
                 </div>
               </div>
             )}
-
-            {/* Preview table */}
             {validRows.length>0&&(
               <div style={{background:"#080e16",border:"1px solid #1a2535",borderRadius:10,overflow:"hidden"}}>
                 <div style={{padding:"10px 14px",borderBottom:"1px solid #1a2535",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -428,8 +404,6 @@ function BulkImportModal({ onClose, onImported, showToast }) {
                 </div>
               </div>
             )}
-
-            {/* Buttons */}
             <div style={{display:"flex",gap:10,paddingTop:4}}>
               <button className="bi-action-btn" onClick={()=>{setParsed(null);setStage("upload");}} style={{flex:1,background:"transparent",color:"var(--muted)",borderColor:"#1e2d42"}}>← Change File</button>
               <button className="bi-action-btn" onClick={startImport} disabled={validRows.length===0}
@@ -440,20 +414,15 @@ function BulkImportModal({ onClose, onImported, showToast }) {
           </div>
         )}
 
-        {/* ── STAGE: Importing ── */}
         {stage==="importing"&&(
           <div className="bi-body" style={{display:"flex",flexDirection:"column",gap:18}}>
             <div style={{textAlign:"center",padding:"8px 0 4px"}}>
               <div style={{fontSize:15,fontWeight:700,color:"#c8d8f0",marginBottom:4}}>Importing problems…</div>
               <div style={{fontSize:28,fontWeight:900,fontFamily:"var(--mono)",color:"var(--cyan)"}}>{progress}%</div>
             </div>
-            <div className="bi-progress-bar">
-              <div className="bi-progress-fill" style={{width:`${progress}%`}}/>
-            </div>
+            <div className="bi-progress-bar"><div className="bi-progress-fill" style={{width:`${progress}%`}}/></div>
             <div ref={logRef} style={{background:"#070c12",border:"1px solid #1a2535",borderRadius:10,maxHeight:300,overflowY:"auto"}}>
-              {importLog.length===0&&(
-                <div style={{padding:"20px",textAlign:"center",color:"var(--muted)",fontSize:12}}>Starting…</div>
-              )}
+              {importLog.length===0&&<div style={{padding:"20px",textAlign:"center",color:"var(--muted)",fontSize:12}}>Starting…</div>}
               {importLog.map((entry,i)=>(
                 <div key={i} className="bi-log-row">
                   <span style={{color:entry.ok?"var(--green)":"var(--red)",flexShrink:0,fontSize:14}}>{entry.ok?"✓":"✗"}</span>
@@ -471,7 +440,6 @@ function BulkImportModal({ onClose, onImported, showToast }) {
           </div>
         )}
 
-        {/* ── STAGE: Done ── */}
         {stage==="done"&&(
           <div className="bi-body" style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20,textAlign:"center",padding:"40px 26px"}}>
             <div style={{width:76,height:76,borderRadius:"50%",background:"linear-gradient(135deg,rgba(34,197,94,0.15),rgba(34,197,94,0.05))",border:"2px solid rgba(34,197,94,0.4)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32,animation:"popIn 0.45s cubic-bezier(0.175,0.885,0.32,1.275)"}}>✓</div>
@@ -535,6 +503,15 @@ const deriveStatus = (s, e) => {
   if (now < new Date(s).getTime()) return "upcoming";
   if (now < new Date(e).getTime()) return "live";
   return "ended";
+};
+
+// ✅ Helper: safely normalize any API response to an array
+const toArray = (val, ...keys) => {
+  if (Array.isArray(val)) return val;
+  for (const key of keys) {
+    if (val && Array.isArray(val[key])) return val[key];
+  }
+  return [];
 };
 
 function exportCSV(rows, cols, filename) {
@@ -630,9 +607,8 @@ export default function AdminDashboard() {
   const [debugLog,      setDebugLog]      = useState([]);
   const [showDebug,     setShowDebug]     = useState(false);
   const [plagLoad,      setPlagLoad]      = useState(null);
-  const [showBulkImport,setShowBulkImport]= useState(false); // ← NEW
+  const [showBulkImport,setShowBulkImport]= useState(false);
 
-  // Per-tab search/filter
   const [userSearch,  setUserSearch]  = useState("");
   const [userRole,    setUserRole]    = useState("all");
   const [userStatus,  setUserStatus]  = useState("all");
@@ -680,24 +656,38 @@ export default function AdminDashboard() {
         ]);
 
       const log = [
-        ["/admin/stats", statsRes],["/admin/users", usersRes],["/admin/problems", problemsRes],
-        ["/contests", contestsRes],["/admin/submissions", submissionsRes],["/admin/activity", activityRes],
-      ].map(([ep,res])=>({ep,status:res.status==="fulfilled"?"✅ OK":"❌ ERR",type:res.status==="fulfilled"?(Array.isArray(res.value.data)?`Array(${res.value.data.length})`:typeof res.value.data):"—",preview:res.status==="fulfilled"?JSON.stringify(res.value.data).slice(0,120):res.reason?.message||String(res.reason)}));
+        ["/admin/stats",       statsRes],
+        ["/admin/users",       usersRes],
+        ["/admin/problems",    problemsRes],
+        ["/contests",          contestsRes],
+        ["/admin/submissions", submissionsRes],
+        ["/admin/activity",    activityRes],
+      ].map(([ep, res]) => ({
+        ep,
+        status:  res.status === "fulfilled" ? "✅ OK" : "❌ ERR",
+        type:    res.status === "fulfilled" ? (Array.isArray(res.value.data) ? `Array(${res.value.data.length})` : typeof res.value.data) : "—",
+        preview: res.status === "fulfilled" ? JSON.stringify(res.value.data).slice(0, 120) : res.reason?.message || String(res.reason),
+      }));
       setDebugLog(log);
 
-      const rawContests = contestsRes.status === "fulfilled" ? contestsRes.value.data : [];
-      const normalizedContests = Array.isArray(rawContests) ? rawContests : rawContests?.contests ?? rawContests?.data ?? [];
+      // ✅ Normalize all responses — handles both [] and { users: [] } shapes
+      const rawStats       = statsRes.status       === "fulfilled" ? statsRes.value.data       : {};
+      const rawUsers       = usersRes.status       === "fulfilled" ? usersRes.value.data       : [];
+      const rawProblems    = problemsRes.status    === "fulfilled" ? problemsRes.value.data    : [];
+      const rawContests    = contestsRes.status    === "fulfilled" ? contestsRes.value.data    : [];
+      const rawSubmissions = submissionsRes.status === "fulfilled" ? submissionsRes.value.data : [];
+      const rawActivity    = activityRes.status    === "fulfilled" ? activityRes.value.data    : [];
 
       setData({
-        stats:       statsRes.status       === "fulfilled" ? statsRes.value.data      : {},
-        users:       usersRes.status       === "fulfilled" ? usersRes.value.data       : [],
-        problems:    problemsRes.status    === "fulfilled" ? problemsRes.value.data    : [],
-        contests:    normalizedContests,
-        submissions: submissionsRes.status === "fulfilled" ? submissionsRes.value.data : [],
-        activity:    activityRes.status    === "fulfilled" ? activityRes.value.data    : [],
+        stats:       rawStats && typeof rawStats === "object" && !Array.isArray(rawStats) ? rawStats : {},
+        users:       toArray(rawUsers,       "users",       "data"),
+        problems:    toArray(rawProblems,    "problems",    "data"),
+        contests:    toArray(rawContests,    "contests",    "data"),
+        submissions: toArray(rawSubmissions, "submissions", "data"),
+        activity:    toArray(rawActivity,    "activity",    "data"),
       });
 
-      const s = statsRes.status === "fulfilled" ? statsRes.value.data : {};
+      const s = rawStats && typeof rawStats === "object" ? rawStats : {};
       const newAlerts = [];
       if (s.pendingProblems > 0) newAlerts.push({ type: "warning", msg: `${s.pendingProblems} problem(s) pending review.`,  id: "pending"  });
       if (s.activeContests  > 0) newAlerts.push({ type: "success", msg: `${s.activeContests} contest(s) currently live.`,   id: "live"     });
@@ -812,7 +802,11 @@ export default function AdminDashboard() {
           if (activeTab==="users")    await Promise.all(ids.map(id=>API.delete(`/admin/users/${id}`)));
           if (activeTab==="problems") await Promise.all(ids.map(id=>API.delete(`/problems/${id}`)));
           if (activeTab==="contests") await Promise.all(ids.map(id=>API.delete(`/contests/internal/${id}`)));
-          setData(d=>({...d,users:activeTab==="users"?d.users.filter(u=>!ids.includes(u._id)):d.users,problems:activeTab==="problems"?d.problems.filter(p=>!ids.includes(p._id)):d.problems,contests:activeTab==="contests"?d.contests.filter(c=>!ids.includes(c._id)):d.contests}));
+          setData(d=>({...d,
+            users:    activeTab==="users"    ? d.users.filter(u=>!ids.includes(u._id))    : d.users,
+            problems: activeTab==="problems" ? d.problems.filter(p=>!ids.includes(p._id)) : d.problems,
+            contests: activeTab==="contests" ? d.contests.filter(c=>!ids.includes(c._id)) : d.contests,
+          }));
           setSelected(new Set()); showToast(`Deleted ${ids.length} items ✓`);
         } catch { showToast("Bulk delete partially failed","error"); }
       },
@@ -866,13 +860,13 @@ export default function AdminDashboard() {
   /* ── Bulk bar ── */
   const BulkBar=()=>selected.size>0?(<div className="ad-bulk-bar"><span className="ad-bulk-text">✓ {selected.size} selected</span><button className="ad-bulk-btn" onClick={bulkDelete} style={{color:"var(--red)",borderColor:"rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.06)"}}>Delete Selected</button><button className="ad-bulk-btn" onClick={()=>setSelected(new Set())} style={{color:"var(--muted)",borderColor:"var(--border)",background:"transparent"}}>Clear</button></div>):null;
 
-  /* ── Quick Actions config ── */
+  /* ── Quick Actions ── */
   const quickActions = [
     { icon:"➕", label:"Add Problem",  sub:"Create new DSA problem",    color:"#22C55E", badge:null,  onClick:()=>navigate("/admin/problems/new") },
     { icon:"🎯", label:"New Contest",  sub:"Set up a timed contest",     color:"#F59E0B", badge:null,  onClick:()=>navigate("/admin/contests/new") },
     { icon:"👥", label:"All Users",    sub:"View & manage accounts",     color:"#00B4D8", badge:null,  onClick:()=>navigate("/admin/users") },
     { icon:"📊", label:"Analytics",    sub:"Charts & deep insights",     color:"#8B5CF6", badge:null,  onClick:()=>navigate("/admin/analytics") },
-    { icon:"📥", label:"Bulk Import",  sub:"Import problems via CSV",    color:"#EC4899", badge:"CSV", onClick:()=>setShowBulkImport(true) },  // ← opens modal
+    { icon:"📥", label:"Bulk Import",  sub:"Import problems via CSV",    color:"#EC4899", badge:"CSV", onClick:()=>setShowBulkImport(true) },
     { icon:"⚙️", label:"Settings",     sub:"Platform configuration",     color:"#64748B", badge:null,  onClick:()=>navigate("/admin/settings") },
   ];
 
@@ -904,14 +898,14 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* ── Bulk Import Modal ── */}
+      {/* Bulk Import Modal */}
       {showBulkImport&&(
         <BulkImportModal
           onClose={()=>setShowBulkImport(false)}
           showToast={showToast}
           onImported={(count)=>{
             showToast(`${count} problem${count!==1?"s":""} imported successfully ✓`);
-            fetchAll(); // refresh dashboard data
+            fetchAll();
           }}
         />
       )}
