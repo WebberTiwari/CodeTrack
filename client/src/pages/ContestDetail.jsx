@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_API_URL || "http://import.meta.env.VITE_API_URL || "http://localhost:5000"";
 
 const CONTEST_DETAIL_ROUTE    = (id) => `${API_BASE}/api/contests/${id}`;
 const CONTEST_REGISTER_ROUTE  = (id) => `${API_BASE}/api/contests/${id}/register`;

@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { io } from "socket.io-client";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://import.meta.env.VITE_API_URL || "http://localhost:5000"";
 
 const MAX_POLL_ATTEMPTS   = 30;
 const POLL_INTERVAL_MS    = 2000;
