@@ -2,14 +2,15 @@ import axios from "axios";
 
 // ================= AXIOS INSTANCE =================
 
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 const API = axios.create({
-  baseURL:         `${import.meta.env.VITE_API_URL || "http://import.meta.env.VITE_API_URL || "http://localhost:5000""}/api`,
-  withCredentials: true, // needed to send/receive httpOnly cookies
+  baseURL: `${BASE_URL}/api`,
+  withCredentials: true,
 });
 
 
 // ================= REQUEST INTERCEPTOR =================
-// Attach access token to every request
 
 API.interceptors.request.use(
   (config) => {
@@ -24,7 +25,6 @@ API.interceptors.request.use(
 
 
 // ================= RESPONSE INTERCEPTOR =================
-// Auto-refresh access token when it expires (401 + expired flag)
 
 let isRefreshing = false;
 let refreshQueue = [];
@@ -64,7 +64,7 @@ API.interceptors.response.use(
 
       try {
         const { data } = await axios.post(
-          `${import.meta.env.VITE_API_URL || "http://import.meta.env.VITE_API_URL || "http://localhost:5000""}/api/auth/refresh`,
+          `${BASE_URL}/api/auth/refresh`,  // ✅ clean, reuses the same variable
           {},
           { withCredentials: true }
         );
