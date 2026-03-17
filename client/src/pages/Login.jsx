@@ -1,3 +1,4 @@
+// src/pages/Login.jsx  — COMPLETE FILE
 import { useState } from "react";
 import API from "../services/api";
 import { useNavigate } from "react-router-dom";
@@ -228,11 +229,9 @@ const CSS = `
 .lg-role-badge.user  { background: rgba(34,197,94,0.10);  color: #22C55E; border: 1px solid rgba(34,197,94,0.25); }
 `;
 
-// ─── helpers — read auth state anywhere in the app ──────────────────────────
 export function getRole()    { return localStorage.getItem("role"); }
 export function isAdmin()    { return getRole() === "admin"; }
-export function isLoggedIn() { return !!localStorage.getItem("accessToken"); } // ← updated key
-// ────────────────────────────────────────────────────────────────────────────
+export function isLoggedIn() { return !!localStorage.getItem("accessToken"); }
 
 export default function Login() {
   const navigate  = useNavigate();
@@ -253,7 +252,10 @@ export default function Login() {
     if (!form.email.trim())                     e.email    = "Email is required";
     else if (!/\S+@\S+\.\S+/.test(form.email)) e.email    = "Enter a valid email";
     if (!form.password)                         e.password = "Password is required";
-    else if (form.password.length < 3)          e.password = "Minimum 6 characters";
+    // ── FIXED: match backend requirements ──
+    else if (form.password.length < 8)          e.password = "Minimum 8 characters";
+    else if (!isLogin && !/[A-Z]/.test(form.password)) e.password = "Must include an uppercase letter";
+    else if (!isLogin && !/[0-9]/.test(form.password)) e.password = "Must include a number";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -269,32 +271,25 @@ export default function Login() {
         : form;
 
       const res = await API.post(url, payload);
-
-      // ── NEW: response now returns accessToken instead of token ────────
       const { accessToken, user } = res.data;
 
-      // ── Save to localStorage ──────────────────────────────────────────
-      localStorage.setItem("accessToken", accessToken); // ← was "token"
+      localStorage.setItem("accessToken", accessToken);
       localStorage.setItem("userId",      user._id);
       localStorage.setItem("username",    user.name);
       localStorage.setItem("email",       user.email);
       localStorage.setItem("role",        user.role ?? "user");
-      // ─────────────────────────────────────────────────────────────────
 
       toast.success(isLogin ? "Welcome back! 🎉" : "Account created! 🎉");
 
-      // ── Redirect based on role ────────────────────────────────────────
       setTimeout(() => {
-        if (user.role === "admin") {
-          navigate("/admin/dashboard");
-        } else {
-          navigate("/profile");
-        }
+        if (user.role === "admin") navigate("/admin/dashboard");
+        else navigate("/profile");
       }, 900);
-      // ─────────────────────────────────────────────────────────────────
 
     } catch (err) {
-      toast.error(err.response?.data?.message || "Something went wrong");
+      // ── FIXED: message is a string, never call .map() on it ──
+      const message = err.response?.data?.message;
+      toast.error(typeof message === "string" ? message : "Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -314,32 +309,22 @@ export default function Login() {
         <div className="lg-blob lg-blob-2"/>
 
         <div className="lg-card">
-
-          {/* Logo */}
           <div className="lg-logo">
             <div className="lg-logo-icon">⚡</div>
             <span className="lg-logo-text">CodeTrack</span>
           </div>
 
-          {/* Mode switcher */}
           <div className="lg-mode-tabs">
             <button className={`lg-mode-tab ${isLogin ? "on" : ""}`}  onClick={() => { if(!isLogin) switchMode(); }}>Sign In</button>
             <button className={`lg-mode-tab ${!isLogin ? "on" : ""}`} onClick={() => { if(isLogin)  switchMode(); }}>Create Account</button>
           </div>
 
-          {/* Heading */}
-          <div className="lg-heading">
-            {isLogin ? "Welcome back" : "Join CodeTrack"}
-          </div>
+          <div className="lg-heading">{isLogin ? "Welcome back" : "Join CodeTrack"}</div>
           <div className="lg-sub">
-            {isLogin
-              ? "Sign in to continue your coding journey"
-              : "Start solving, competing and tracking your growth"}
+            {isLogin ? "Sign in to continue your coding journey" : "Start solving, competing and tracking your growth"}
           </div>
 
-          {/* Form */}
           <form className="lg-form" onSubmit={handleSubmit} noValidate>
-
             {!isLogin && (
               <div className="lg-field">
                 <label className="lg-label">Full Name</label>
@@ -347,7 +332,7 @@ export default function Login() {
                   <span className="lg-input-icon">👤</span>
                   <input
                     className={`lg-input ${errors.name ? "err" : ""}`}
-                    name="name" placeholder="Virendra Tiwari"
+                    name="name" placeholder="Your full name"
                     value={form.name} onChange={handleChange}
                     autoComplete="name"
                   />
@@ -377,7 +362,7 @@ export default function Login() {
                 <input
                   className={`lg-input ${errors.password ? "err" : ""}`}
                   name="password" type={showPw ? "text" : "password"}
-                  placeholder={isLogin ? "Your password" : "Min. 6 characters"}
+                  placeholder={isLogin ? "Your password" : "Min. 8 chars, 1 uppercase, 1 number"}
                   value={form.password} onChange={handleChange}
                   autoComplete={isLogin ? "current-password" : "new-password"}
                   style={{ paddingRight:"42px" }}
@@ -409,7 +394,6 @@ export default function Login() {
               {isLogin ? "Create a free account" : "Sign in"}
             </button>
           </div>
-
         </div>
       </div>
     </>
