@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import API from "../services/api";
 
@@ -34,9 +34,9 @@ const CSS = `
 .acf-title { font-size:28px; font-weight:900; color:#fff; letter-spacing:-0.5px; margin-bottom:6px; }
 .acf-sub { font-size:13px; color:var(--muted); margin-bottom:32px; }
 .acf-section { background:var(--surface); border:1px solid var(--border); border-radius:16px;
-  overflow:hidden; margin-bottom:20px; }
+  overflow:visible; margin-bottom:20px; }
 .acf-section-hdr { display:flex; align-items:center; gap:10px; padding:16px 22px;
-  background:var(--s2); border-bottom:1px solid var(--border); }
+  background:var(--s2); border-bottom:1px solid var(--border); border-radius:16px 16px 0 0; }
 .acf-section-title { font-size:13px; font-weight:700; color:#fff; }
 .acf-section-sub { font-size:12px; color:var(--muted); margin-left:auto; }
 .acf-section-body { padding:22px; display:flex; flex-direction:column; gap:18px; }
@@ -49,19 +49,15 @@ const CSS = `
 .acf-input:focus { border-color:rgba(245,158,11,0.45); box-shadow:0 0 0 3px rgba(245,158,11,0.08); }
 .acf-input::placeholder { color:var(--muted); }
 .acf-search-wrap { position:relative; }
-/* REPLACE: */
-.acf-search-results { position:absolute; top:calc(100% + 6px); left:0; right:0; background:var(--surface);
-  border:1px solid var(--border); border-radius:10px; z-index:9999; max-height:420px; overflow-y:auto;
-  box-shadow:0 12px 40px rgba(0,0,0,0.5); }
-.acf-search-item { display:flex; align-items:center; justify-content:space-between; padding:10px 14px;
+.acf-search-item { display:flex; align-items:center; justify-content:space-between; padding:12px 16px;
   cursor:pointer; transition:background 0.12s; border-bottom:1px solid var(--border); }
 .acf-search-item:last-child { border-bottom:none; }
 .acf-search-item:hover { background:var(--s2); }
 .acf-search-name { font-size:13px; font-weight:600; color:var(--text); }
-.acf-search-diff { font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; }
-.acf-no-results { padding:14px; text-align:center; font-size:13px; color:var(--muted); }
-.acf-search-hint { padding:10px 14px; font-size:11px; color:var(--muted); border-bottom:1px solid var(--border);
-  font-style:italic; }
+.acf-search-diff { font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; flex-shrink:0; }
+.acf-no-results { padding:16px; text-align:center; font-size:13px; color:var(--muted); }
+.acf-search-hint { padding:10px 16px; font-size:11px; color:var(--muted);
+  border-bottom:1px solid var(--border); font-style:italic; }
 .acf-prob-card { display:flex; align-items:center; gap:12px; padding:12px 16px; background:var(--bg);
   border:1px solid var(--border); border-radius:10px; transition:border-color 0.2s; }
 .acf-prob-card:hover { border-color:var(--border2); }
@@ -112,7 +108,6 @@ function toDatetimeLocal(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// ✅ Safe array normalizer
 const toArr = (val, ...keys) => {
   if (Array.isArray(val)) return val;
   for (const k of keys) if (val && Array.isArray(val[k])) return val[k];
@@ -120,46 +115,45 @@ const toArr = (val, ...keys) => {
 };
 
 export default function AdminContestForm() {
-  const navigate = useNavigate();
-  const { id }   = useParams();
-  const isEdit   = Boolean(id);
+  const navigate   = useNavigate();
+  const { id }     = useParams();
+  const isEdit     = Boolean(id);
+  const inputRef   = useRef(null);
 
-  const [saving,      setSaving]      = useState(false);
-  const [msg,         setMsg]         = useState(null);
-  const [form,        setForm]        = useState({ title: "", startTime: "", endTime: "" });
-  const [problems,    setProblems]    = useState([]);
-  const [search,      setSearch]      = useState("");
-  const [allProblems, setAllProblems] = useState([]);
-  const [showResults, setShowResults] = useState(false);
+  const [saving,        setSaving]      = useState(false);
+  const [msg,           setMsg]         = useState(null);
+  const [form,          setForm]        = useState({ title: "", startTime: "", endTime: "" });
+  const [problems,      setProblems]    = useState([]);
+  const [search,        setSearch]      = useState("");
+  const [allProblems,   setAllProblems] = useState([]);
+  const [showResults,   setShowResults] = useState(false);
+  const [dropdownStyle, setDropdownStyle] = useState({});
 
-  // ✅ Load all problems for search
+  // ✅ Load all problems — fetch all pages
   useEffect(() => {
-  const fetchAllProblems = async () => {
-    try {
-      let page = 1;
-      let all  = [];
-      while (true) {
-        const r    = await API.get(`/problems?page=${page}&limit=100`);
-        const d    = r.data;
-        const list = toArr(d, "problems", "data");
-        if (list.length === 0) break;
-        all = [...all, ...list];
-        // if returned less than 100 we've reached the last page
-        if (list.length < 100) break;
-        page++;
-      }
-      setAllProblems(all);
-    } catch {
-      // fallback — try without pagination
+    const fetchAllProblems = async () => {
       try {
-        const r = await API.get("/problems?limit=1000");
-        const d = r.data;
-        setAllProblems(toArr(d, "problems", "data"));
-      } catch {}
-    }
-  };
-  fetchAllProblems();
-}, []);
+        let page = 1;
+        let all  = [];
+        while (true) {
+          const r    = await API.get(`/problems?page=${page}&limit=100`);
+          const d    = r.data;
+          const list = toArr(d, "problems", "data");
+          if (list.length === 0) break;
+          all = [...all, ...list];
+          if (list.length < 100) break;
+          page++;
+        }
+        setAllProblems(all);
+      } catch {
+        try {
+          const r = await API.get("/problems?limit=1000");
+          setAllProblems(toArr(r.data, "problems", "data"));
+        } catch {}
+      }
+    };
+    fetchAllProblems();
+  }, []);
 
   // ✅ Load contest if editing
   useEffect(() => {
@@ -186,9 +180,29 @@ export default function AdminContestForm() {
       .catch(() => setMsg({ type: "error", text: "Failed to load contest." }));
   }, [id, isEdit]);
 
+  // ✅ Calculate fixed dropdown position from input ref
+  const openDropdown = () => {
+    if (inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setDropdownStyle({
+        position: "fixed",
+        top:      rect.bottom + 6,
+        left:     rect.left,
+        width:    rect.width,
+        maxHeight: "50vh",
+        overflowY: "auto",
+        background: "#161B22",
+        border: "1px solid #21262D",
+        borderRadius: 10,
+        zIndex: 99999,
+        boxShadow: "0 16px 48px rgba(0,0,0,0.8)",
+      });
+    }
+    setShowResults(true);
+  };
+
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // ✅ Show ALL problems when search is empty, filter when typing
   const filtered = allProblems.filter(p =>
     (!search.trim() || (p.title || "").toLowerCase().includes(search.toLowerCase())) &&
     !problems.find(sel => sel.problemId === p._id)
@@ -254,7 +268,6 @@ export default function AdminContestForm() {
       <div className="acf-root">
         <div className="acf-inner">
 
-          {/* Top bar */}
           <div className="acf-topbar acf-fade">
             <button className="acf-back" onClick={() => navigate("/admin/dashboard")}>← Dashboard</button>
             <span className="acf-badge">⚡ Admin</span>
@@ -330,32 +343,39 @@ export default function AdminContestForm() {
               <div className="acf-field">
                 <label className="acf-label">Search & Add Problems</label>
                 <div className="acf-search-wrap">
+
+                  {/* ✅ input with ref for fixed positioning */}
                   <input
+                    ref={inputRef}
                     className="acf-input"
-                    placeholder="Click or type to search problems..."
+                    placeholder="Click or type to search all problems..."
                     value={search}
-                    onChange={e => { setSearch(e.target.value); setShowResults(true); }}
-                    onFocus={() => setShowResults(true)}
+                    onChange={e => { setSearch(e.target.value); openDropdown(); }}
+                    onFocus={openDropdown}
                     onBlur={() => setTimeout(() => setShowResults(false), 200)}
                   />
 
-                  {/* ✅ Show dropdown on focus even without typing */}
+                  {/* ✅ Fixed position dropdown — never clipped */}
                   {showResults && (
-                    <div className="acf-search-results">
+                    <div style={dropdownStyle}>
                       {!search.trim() && (
-                        <div className="acf-search-hint">
+                        <div style={{ padding: "10px 16px", fontSize: 11, color: "#64748B", borderBottom: "1px solid #21262D", fontStyle: "italic" }}>
                           {allProblems.length} problems available — type to filter
                         </div>
                       )}
                       {filtered.length === 0 ? (
-                        <div className="acf-no-results">
+                        <div style={{ padding: 16, textAlign: "center", fontSize: 13, color: "#64748B" }}>
                           {search.trim() ? "No matching problems found" : "All problems already added"}
                         </div>
                       ) : (
-                        filtered.slice(0, 12).map(p => {
+                        filtered.map(p => {
                           const dc = diffColor(p.difficulty);
                           return (
-                            <div key={p._id} className="acf-search-item" onMouseDown={() => addProblem(p)}>
+                            <div
+                              key={p._id}
+                              className="acf-search-item"
+                              onMouseDown={() => addProblem(p)}
+                            >
                               <span className="acf-search-name">{p.title}</span>
                               <span className="acf-search-diff" style={{ color: dc.color, background: dc.bg }}>
                                 {p.difficulty}
@@ -363,11 +383,6 @@ export default function AdminContestForm() {
                             </div>
                           );
                         })
-                      )}
-                      {filtered.length > 12 && (
-                        <div className="acf-search-hint">
-                          Showing 12 of {filtered.length} — type to narrow results
-                        </div>
                       )}
                     </div>
                   )}
