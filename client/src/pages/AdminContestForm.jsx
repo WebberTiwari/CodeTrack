@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import API from "../services/api";
 
@@ -49,15 +49,19 @@ const CSS = `
 .acf-input:focus { border-color:rgba(245,158,11,0.45); box-shadow:0 0 0 3px rgba(245,158,11,0.08); }
 .acf-input::placeholder { color:var(--muted); }
 .acf-search-wrap { position:relative; }
+.acf-search-results { position:absolute; top:calc(100% + 6px); left:0; right:0;
+  background:#161B22; border:1px solid #21262D; border-radius:10px;
+  z-index:9999; max-height:320px; overflow-y:auto;
+  box-shadow:0 16px 48px rgba(0,0,0,0.8); }
 .acf-search-item { display:flex; align-items:center; justify-content:space-between; padding:12px 16px;
-  cursor:pointer; transition:background 0.12s; border-bottom:1px solid var(--border); }
+  cursor:pointer; transition:background 0.12s; border-bottom:1px solid #21262D; }
 .acf-search-item:last-child { border-bottom:none; }
-.acf-search-item:hover { background:var(--s2); }
-.acf-search-name { font-size:13px; font-weight:600; color:var(--text); }
+.acf-search-item:hover { background:#1C2333; }
+.acf-search-name { font-size:13px; font-weight:600; color:#E2E8F0; }
 .acf-search-diff { font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; flex-shrink:0; }
-.acf-no-results { padding:16px; text-align:center; font-size:13px; color:var(--muted); }
-.acf-search-hint { padding:10px 16px; font-size:11px; color:var(--muted);
-  border-bottom:1px solid var(--border); font-style:italic; }
+.acf-no-results { padding:16px; text-align:center; font-size:13px; color:#64748B; }
+.acf-search-hint { padding:10px 16px; font-size:11px; color:#64748B;
+  border-bottom:1px solid #21262D; font-style:italic; }
 .acf-prob-card { display:flex; align-items:center; gap:12px; padding:12px 16px; background:var(--bg);
   border:1px solid var(--border); border-radius:10px; transition:border-color 0.2s; }
 .acf-prob-card:hover { border-color:var(--border2); }
@@ -115,19 +119,17 @@ const toArr = (val, ...keys) => {
 };
 
 export default function AdminContestForm() {
-  const navigate   = useNavigate();
-  const { id }     = useParams();
-  const isEdit     = Boolean(id);
-  const inputRef   = useRef(null);
+  const navigate = useNavigate();
+  const { id }   = useParams();
+  const isEdit   = Boolean(id);
 
-  const [saving,        setSaving]      = useState(false);
-  const [msg,           setMsg]         = useState(null);
-  const [form,          setForm]        = useState({ title: "", startTime: "", endTime: "" });
-  const [problems,      setProblems]    = useState([]);
-  const [search,        setSearch]      = useState("");
-  const [allProblems,   setAllProblems] = useState([]);
-  const [showResults,   setShowResults] = useState(false);
-  const [dropdownStyle, setDropdownStyle] = useState({});
+  const [saving,      setSaving]      = useState(false);
+  const [msg,         setMsg]         = useState(null);
+  const [form,        setForm]        = useState({ title: "", startTime: "", endTime: "" });
+  const [problems,    setProblems]    = useState([]);
+  const [search,      setSearch]      = useState("");
+  const [allProblems, setAllProblems] = useState([]);
+  const [showResults, setShowResults] = useState(false);
 
   // ✅ Load all problems — fetch all pages
   useEffect(() => {
@@ -180,29 +182,9 @@ export default function AdminContestForm() {
       .catch(() => setMsg({ type: "error", text: "Failed to load contest." }));
   }, [id, isEdit]);
 
-  // ✅ Calculate fixed dropdown position from input ref
-  const openDropdown = () => {
-    if (inputRef.current) {
-      const rect = inputRef.current.getBoundingClientRect();
-      setDropdownStyle({
-        position: "fixed",
-        top:      rect.bottom + 6,
-        left:     rect.left,
-        width:    rect.width,
-        maxHeight: "50vh",
-        overflowY: "auto",
-        background: "#161B22",
-        border: "1px solid #21262D",
-        borderRadius: 10,
-        zIndex: 99999,
-        boxShadow: "0 16px 48px rgba(0,0,0,0.8)",
-      });
-    }
-    setShowResults(true);
-  };
-
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  // ✅ Show ALL problems when search empty, filter when typing
   const filtered = allProblems.filter(p =>
     (!search.trim() || (p.title || "").toLowerCase().includes(search.toLowerCase())) &&
     !problems.find(sel => sel.problemId === p._id)
@@ -342,40 +324,34 @@ export default function AdminContestForm() {
             <div className="acf-section-body">
               <div className="acf-field">
                 <label className="acf-label">Search & Add Problems</label>
-                <div className="acf-search-wrap">
 
-                  {/* ✅ input with ref for fixed positioning */}
+                {/* ✅ Simple relative wrap — dropdown is absolute below input */}
+                <div className="acf-search-wrap">
                   <input
-                    ref={inputRef}
                     className="acf-input"
                     placeholder="Click or type to search all problems..."
                     value={search}
-                    onChange={e => { setSearch(e.target.value); openDropdown(); }}
-                    onFocus={openDropdown}
+                    onChange={e => { setSearch(e.target.value); setShowResults(true); }}
+                    onFocus={() => setShowResults(true)}
                     onBlur={() => setTimeout(() => setShowResults(false), 200)}
                   />
 
-                  {/* ✅ Fixed position dropdown — never clipped */}
                   {showResults && (
-                    <div style={dropdownStyle}>
+                    <div className="acf-search-results">
                       {!search.trim() && (
-                        <div style={{ padding: "10px 16px", fontSize: 11, color: "#64748B", borderBottom: "1px solid #21262D", fontStyle: "italic" }}>
+                        <div className="acf-search-hint">
                           {allProblems.length} problems available — type to filter
                         </div>
                       )}
                       {filtered.length === 0 ? (
-                        <div style={{ padding: 16, textAlign: "center", fontSize: 13, color: "#64748B" }}>
+                        <div className="acf-no-results">
                           {search.trim() ? "No matching problems found" : "All problems already added"}
                         </div>
                       ) : (
                         filtered.map(p => {
                           const dc = diffColor(p.difficulty);
                           return (
-                            <div
-                              key={p._id}
-                              className="acf-search-item"
-                              onMouseDown={() => addProblem(p)}
-                            >
+                            <div key={p._id} className="acf-search-item" onMouseDown={() => addProblem(p)}>
                               <span className="acf-search-name">{p.title}</span>
                               <span className="acf-search-diff" style={{ color: dc.color, background: dc.bg }}>
                                 {p.difficulty}
