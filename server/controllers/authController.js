@@ -107,8 +107,8 @@ exports.registerUser = catchAsync(async (req, res, next) => {
       const message = Object.values(err.errors).map((e) => e.message).join(", ");
       return next(new AppError(message, 400));
     }
-    return next(new AppError("Could not create account. Please try again.", 500));
-  }
+   console.error("REGISTER ERROR:", err);  // 👈 VERY IMPORTANT
+return next(new AppError(err.message, 500));
 
   // 6. Issue tokens
   const accessToken  = generateAccessToken(user._id, user.role);
