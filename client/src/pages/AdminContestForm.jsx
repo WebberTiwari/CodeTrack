@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import API from "../services/api";
 
@@ -24,9 +24,9 @@ const CSS = `
   background-size:48px 48px; }
 .acf-inner { max-width:900px; margin:0 auto; padding:36px 28px 100px; position:relative; z-index:1; }
 .acf-topbar { display:flex; align-items:center; gap:12px; margin-bottom:32px; }
-.acf-back { display:inline-flex; align-items:center; gap:5px; padding:6px 14px; border:1px solid var(--border);
-  border-radius:8px; background:transparent; color:var(--muted); font-family:var(--font); font-size:12px;
-  font-weight:600; cursor:pointer; transition:all 0.18s; }
+.acf-back { display:inline-flex; align-items:center; gap:5px; padding:6px 14px;
+  border:1px solid var(--border); border-radius:8px; background:transparent; color:var(--muted);
+  font-family:var(--font); font-size:12px; font-weight:600; cursor:pointer; transition:all 0.18s; }
 .acf-back:hover { border-color:var(--green); color:var(--green); }
 .acf-badge { display:inline-flex; align-items:center; gap:6px; background:rgba(245,158,11,0.1);
   color:var(--amber); border:1px solid rgba(245,158,11,0.25); border-radius:20px; padding:4px 14px;
@@ -48,10 +48,10 @@ const CSS = `
   transition:border-color 0.18s; }
 .acf-input:focus { border-color:rgba(245,158,11,0.45); box-shadow:0 0 0 3px rgba(245,158,11,0.08); }
 .acf-input::placeholder { color:var(--muted); }
-.acf-search-wrap { position:relative; }
+.acf-search-wrap { position:relative; z-index:1000; }
 .acf-search-results { position:absolute; top:calc(100% + 6px); left:0; right:0;
   background:#161B22; border:1px solid #21262D; border-radius:10px;
-  z-index:9999; max-height:320px; overflow-y:auto;
+  z-index:9999; max-height:240px; overflow-y:auto;
   box-shadow:0 16px 48px rgba(0,0,0,0.8); }
 .acf-search-item { display:flex; align-items:center; justify-content:space-between; padding:12px 16px;
   cursor:pointer; transition:background 0.12s; border-bottom:1px solid #21262D; }
@@ -77,7 +77,7 @@ const CSS = `
 .acf-prob-remove:hover { background:rgba(239,68,68,0.2); }
 .acf-empty { text-align:center; padding:28px; color:var(--muted); font-size:13px;
   border:1px dashed var(--border2); border-radius:10px; }
-.acf-bar { position:sticky; bottom:0; z-index:10; background:rgba(13,17,23,0.95);
+.acf-bar { position:sticky; bottom:0; z-index:99999; background:rgba(13,17,23,0.98);
   backdrop-filter:blur(12px); border-top:1px solid var(--border); padding:16px 28px;
   display:flex; align-items:center; justify-content:space-between; gap:16px; margin:0 -28px; }
 .acf-bar-info { font-size:13px; color:var(--muted); }
@@ -131,7 +131,7 @@ export default function AdminContestForm() {
   const [allProblems, setAllProblems] = useState([]);
   const [showResults, setShowResults] = useState(false);
 
-  // ✅ Load all problems — fetch all pages
+  // ✅ Load ALL problems across all pages
   useEffect(() => {
     const fetchAllProblems = async () => {
       try {
@@ -139,8 +139,7 @@ export default function AdminContestForm() {
         let all  = [];
         while (true) {
           const r    = await API.get(`/problems?page=${page}&limit=100`);
-          const d    = r.data;
-          const list = toArr(d, "problems", "data");
+          const list = toArr(r.data, "problems", "data");
           if (list.length === 0) break;
           all = [...all, ...list];
           if (list.length < 100) break;
@@ -184,7 +183,7 @@ export default function AdminContestForm() {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // ✅ Show ALL problems when search empty, filter when typing
+  // ✅ Show all when empty, filter when typing
   const filtered = allProblems.filter(p =>
     (!search.trim() || (p.title || "").toLowerCase().includes(search.toLowerCase())) &&
     !problems.find(sel => sel.problemId === p._id)
@@ -324,8 +323,6 @@ export default function AdminContestForm() {
             <div className="acf-section-body">
               <div className="acf-field">
                 <label className="acf-label">Search & Add Problems</label>
-
-                {/* ✅ Simple relative wrap — dropdown is absolute below input */}
                 <div className="acf-search-wrap">
                   <input
                     className="acf-input"
