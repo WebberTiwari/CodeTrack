@@ -49,8 +49,9 @@ const CSS = `
 .acf-input:focus { border-color:rgba(245,158,11,0.45); box-shadow:0 0 0 3px rgba(245,158,11,0.08); }
 .acf-input::placeholder { color:var(--muted); }
 .acf-search-wrap { position:relative; }
+/* REPLACE: */
 .acf-search-results { position:absolute; top:calc(100% + 6px); left:0; right:0; background:var(--surface);
-  border:1px solid var(--border); border-radius:10px; z-index:20; max-height:260px; overflow-y:auto;
+  border:1px solid var(--border); border-radius:10px; z-index:9999; max-height:420px; overflow-y:auto;
   box-shadow:0 12px 40px rgba(0,0,0,0.5); }
 .acf-search-item { display:flex; align-items:center; justify-content:space-between; padding:10px 14px;
   cursor:pointer; transition:background 0.12s; border-bottom:1px solid var(--border); }
