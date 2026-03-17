@@ -301,105 +301,98 @@ export default function AnalyticsDashboard() {
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [statsRes, actRes, subRes, usersRes, probsRes] = await Promise.allSettled([
-        API.get("/admin/stats"),
-        API.get(`/admin/activity?days=${range}`),
-        API.get("/admin/submissions"),
-        API.get("/admin/users"),
-        API.get("/admin/problems"),
-      ]);
+ const fetchData = useCallback(async () => {
+  setLoading(true);
+  try {
+    const [statsRes, actRes, subRes, usersRes, probsRes] = await Promise.allSettled([
+      API.get("/admin/stats"),
+      API.get(`/admin/activity?days=${range}`),
+      API.get("/admin/submissions"),
+      API.get("/admin/users"),
+      API.get("/admin/problems"),
+    ]);
 
-      const stats       = statsRes.status === "fulfilled" ? statsRes.value.data : {};
-      const activity    = actRes.status   === "fulfilled" ? actRes.value.data   : [];
-      const submissions = subRes.status   === "fulfilled" ? subRes.value.data   : [];
-      const users       = usersRes.status === "fulfilled" ? usersRes.value.data : [];
-      const problems    = probsRes.status === "fulfilled" ? probsRes.value.data : [];
+    // ✅ Safe array normalizer
+    const toArr = (val, ...keys) => {
+      if (Array.isArray(val)) return val;
+      for (const k of keys) if (val && Array.isArray(val[k])) return val[k];
+      return [];
+    };
 
-      /* ── Derive charts from raw data ── */
+    const rawStats = statsRes.status === "fulfilled" ? statsRes.value.data : {};
+    const stats    = (rawStats && typeof rawStats === "object" && !Array.isArray(rawStats)) ? rawStats : {};
 
-      // 1. Submission trend
-      const subTrend = buildDailyTrend(submissions, Number(range));
+    const activity    = toArr(actRes.status   === "fulfilled" ? actRes.value.data   : [], "activity",    "data");
+    const submissions = toArr(subRes.status   === "fulfilled" ? subRes.value.data   : [], "submissions", "data");
+    const users       = toArr(usersRes.status === "fulfilled" ? usersRes.value.data : [], "users",       "data");
+    const problems    = toArr(probsRes.status === "fulfilled" ? probsRes.value.data : [], "problems",    "data");
 
-      // 2. User growth (by join date)
-      const userGrowth = buildDailyTrend(
-        users.map(u => ({ createdAt: u.createdAt })), Number(range)
-      );
+    const subTrend   = buildDailyTrend(submissions, Number(range));
+    const userGrowth = buildDailyTrend(users.map(u => ({ createdAt: u.createdAt })), Number(range));
 
-      // 3. Language distribution
-      const langMap = {};
-      for (const s of submissions) {
-        const l = s.language || "Unknown";
-        langMap[l] = (langMap[l] || 0) + 1;
-      }
-      const langColors = { "C++": "#00B4D8", "Python": "#F59E0B", "Java": "#22C55E", "JavaScript": "#8B5CF6", "C": "#EF4444", "Unknown": "#64748B" };
-      const langData = Object.entries(langMap)
-        .sort((a, b) => b[1] - a[1]).slice(0, 6)
-        .map(([label, value]) => ({ label, value, color: langColors[label] || "#64748B" }));
-
-      // 4. Verdict distribution
-      const verdictMap = {};
-      for (const s of submissions) {
-        const v = s.verdict || s.status || "Unknown";
-        verdictMap[v] = (verdictMap[v] || 0) + 1;
-      }
-      const verdictColors = { "Accepted": "#22C55E", "Wrong Answer": "#EF4444", "Time Limit Exceeded": "#F59E0B", "Runtime Error": "#8B5CF6", "Compilation Error": "#00B4D8" };
-      const verdictData = Object.entries(verdictMap)
-        .sort((a, b) => b[1] - a[1]).slice(0, 5)
-        .map(([label, value]) => ({ label, value, color: verdictColors[label] || "#64748B" }));
-
-      // 5. Top problems by submission count
-      const probSubs = {};
-      for (const s of submissions) {
-        const id = s.problemId?._id || s.problemId || s.problem;
-        if (id) probSubs[id] = (probSubs[id] || 0) + 1;
-      }
-      const topProblems = problems
-        .map(p => ({ ...p, subCount: probSubs[p._id] || p.totalSubmissions || 0 }))
-        .sort((a, b) => b.subCount - a.subCount)
-        .slice(0, 8);
-
-      // 6. Difficulty distribution
-      const diffData = [
-        { label: "Easy",   value: problems.filter(p => p.difficulty === "Easy").length,   color: "#22C55E" },
-        { label: "Medium", value: problems.filter(p => p.difficulty === "Medium").length, color: "#F59E0B" },
-        { label: "Hard",   value: problems.filter(p => p.difficulty === "Hard").length,   color: "#EF4444" },
-      ];
-
-      // 7. Hourly activity
-      const hourMap = new Array(24).fill(0);
-      for (const s of submissions) {
-        if (s.createdAt) hourMap[new Date(s.createdAt).getHours()]++;
-      }
-      const hourMax = Math.max(...hourMap, 1);
-
-      // 8. Acceptance rate trend
-      const acceptTrend = buildAcceptTrend(submissions, Number(range));
-
-      // 9. New users today / this week
-      const now = new Date();
-      const todayStart = new Date(now.setHours(0,0,0,0));
-      const weekStart  = new Date(Date.now() - 7 * 864e5);
-      const newToday   = users.filter(u => new Date(u.createdAt) >= todayStart).length;
-      const newWeek    = users.filter(u => new Date(u.createdAt) >= weekStart).length;
-
-      setData({
-        stats, subTrend, userGrowth, langData, verdictData,
-        topProblems, diffData, hourMap, hourMax, acceptTrend,
-        totalUsers: users.length, totalProblems: problems.length,
-        totalSubs: submissions.length,
-        accepted: submissions.filter(s => (s.verdict || s.status) === "Accepted").length,
-        newToday, newWeek,
-        activity: activity.slice ? activity : [],
-      });
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
+    const langMap = {};
+    for (const s of submissions) {
+      const l = s.language || "Unknown";
+      langMap[l] = (langMap[l] || 0) + 1;
     }
-  }, [range]);
+    const langColors = { "C++":"#00B4D8","Python":"#F59E0B","Java":"#22C55E","JavaScript":"#8B5CF6","C":"#EF4444","Unknown":"#64748B" };
+    const langData = Object.entries(langMap).sort((a,b)=>b[1]-a[1]).slice(0,6)
+      .map(([label,value])=>({ label, value, color: langColors[label]||"#64748B" }));
+
+    const verdictMap = {};
+    for (const s of submissions) {
+      const v = s.verdict || s.status || "Unknown";
+      verdictMap[v] = (verdictMap[v] || 0) + 1;
+    }
+    const verdictColors = { "Accepted":"#22C55E","Wrong Answer":"#EF4444","Time Limit Exceeded":"#F59E0B","Runtime Error":"#8B5CF6","Compilation Error":"#00B4D8" };
+    const verdictData = Object.entries(verdictMap).sort((a,b)=>b[1]-a[1]).slice(0,5)
+      .map(([label,value])=>({ label, value, color: verdictColors[label]||"#64748B" }));
+
+    const probSubs = {};
+    for (const s of submissions) {
+      const id = s.problemId?._id || s.problemId || s.problem;
+      if (id) probSubs[id] = (probSubs[id] || 0) + 1;
+    }
+    const topProblems = problems
+      .map(p => ({ ...p, subCount: probSubs[p._id] || p.totalSubmissions || 0 }))
+      .sort((a,b) => b.subCount - a.subCount).slice(0,8);
+
+    const diffData = [
+      { label:"Easy",   value: problems.filter(p=>p.difficulty==="Easy").length,   color:"#22C55E" },
+      { label:"Medium", value: problems.filter(p=>p.difficulty==="Medium").length, color:"#F59E0B" },
+      { label:"Hard",   value: problems.filter(p=>p.difficulty==="Hard").length,   color:"#EF4444" },
+    ];
+
+    const hourMap = new Array(24).fill(0);
+    for (const s of submissions) {
+      if (s.createdAt) hourMap[new Date(s.createdAt).getHours()]++;
+    }
+    const hourMax = Math.max(...hourMap, 1);
+
+    const acceptTrend = buildAcceptTrend(submissions, Number(range));
+
+    const now       = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart  = new Date(Date.now() - 7 * 864e5);
+    const newToday   = users.filter(u => new Date(u.createdAt) >= todayStart).length;
+    const newWeek    = users.filter(u => new Date(u.createdAt) >= weekStart).length;
+
+    setData({
+      stats, subTrend, userGrowth, langData, verdictData,
+      topProblems, diffData, hourMap, hourMax, acceptTrend,
+      totalUsers:    users.length,
+      totalProblems: problems.length,
+      totalSubs:     submissions.length,
+      accepted:      submissions.filter(s => (s.verdict || s.status) === "Accepted").length,
+      newToday, newWeek,
+      activity,
+    });
+  } catch (e) {
+    console.error(e);
+  } finally {
+    setLoading(false);
+  }
+}, [range]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -460,21 +453,21 @@ export default function AnalyticsDashboard() {
           {/* KPI Cards */}
           <div className="an-kpis">
             {[
-              { icon: "👥", label: "Total Users",       val: cu_users,  color: "#22C55E", delta: `+${data.newToday} today`,   dt: "up" },
-              { icon: "📬", label: "Total Submissions", val: cu_subs,   color: "#8B5CF6", delta: `${data.totalSubs} total`,   dt: "up" },
-              { icon: "💻", label: "Total Problems",    val: cu_probs,  color: "#00B4D8", delta: null,                         dt: null },
-              { icon: "✅", label: "Accepted",          val: cu_accept, color: "#22C55E",
-                delta: data.totalSubs ? `${Math.round((data.accepted/data.totalSubs)*100)}% rate` : null, dt: "up" },
-              { icon: "📅", label: "New This Week",     val: data.newWeek,  color: "#F59E0B", delta: `+${data.newToday} today`, dt: "up" },
-              { icon: "🔥", label: "Active Problems",   val: data.stats.activeContests || 0, color: "#EF4444", delta: "live contests", dt: "up" },
-            ].map(({ icon, label, val, color, delta, dt }, i) => (
-              <div key={label} className="an-kpi an-fade" style={{ "--kpi-color": color, animationDelay: `${i*0.06}s` }}>
-                <div className="an-kpi-icon">{icon}</div>
-                <div className="an-kpi-val">{typeof val === "number" ? val.toLocaleString() : val}</div>
-                <div className="an-kpi-lbl">{label}</div>
-                {delta && <div className={`an-kpi-delta ${dt}`}>{dt === "up" ? "↑" : "~"} {delta}</div>}
-              </div>
-            ))}
+  { icon:"👥", label:"Total Users",       val:cu_users,  color:"#22C55E", delta:`+${data?.newToday ?? 0} today`,   dt:"up" },
+  { icon:"📬", label:"Total Submissions", val:cu_subs,   color:"#8B5CF6", delta:`${data?.totalSubs ?? 0} total`,   dt:"up" },
+  { icon:"💻", label:"Total Problems",    val:cu_probs,  color:"#00B4D8", delta:null,                               dt:null },
+  { icon:"✅", label:"Accepted",          val:cu_accept, color:"#22C55E",
+    delta: data?.totalSubs ? `${Math.round(((data?.accepted ?? 0)/data.totalSubs)*100)}% rate` : null, dt:"up" },
+  { icon:"📅", label:"New This Week",     val:data?.newWeek  ?? 0, color:"#F59E0B", delta:`+${data?.newToday ?? 0} today`, dt:"up" },
+  { icon:"🔥", label:"Active Problems",   val:data?.stats?.activeContests ?? 0, color:"#EF4444", delta:"live contests", dt:"up" },
+].map(({ icon, label, val, color, delta, dt }, i) => (
+  <div key={label} className="an-kpi an-fade" style={{ "--kpi-color": color, animationDelay:`${i*0.06}s` }}>
+    <div className="an-kpi-icon">{icon}</div>
+    <div className="an-kpi-val">{typeof val === "number" ? val.toLocaleString() : val}</div>
+    <div className="an-kpi-lbl">{label}</div>
+    {delta && <div className={`an-kpi-delta ${dt}`}>{dt === "up" ? "↑" : "~"} {delta}</div>}
+  </div>
+))}
           </div>
 
           {/* Row 1: Submission Trend + User Growth */}
