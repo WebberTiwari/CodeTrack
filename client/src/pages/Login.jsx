@@ -253,7 +253,7 @@ export default function Login() {
     else if (!/\S+@\S+\.\S+/.test(form.email)) e.email    = "Enter a valid email";
     if (!form.password)                         e.password = "Password is required";
     // ── FIXED: match backend requirements ──
-    else if (form.password.length < 8)          e.password = "Minimum 8 characters";
+    else if (form.password.length < 4)          e.password = "Minimum 4 characters";
     else if (!isLogin && !/[A-Z]/.test(form.password)) e.password = "Must include an uppercase letter";
     else if (!isLogin && !/[0-9]/.test(form.password)) e.password = "Must include a number";
     setErrors(e);
