@@ -231,11 +231,10 @@ userSchema.methods.hasAttempted = function (problemId) {
 
 // ================= PRE-SAVE HOOK =================
 
-userSchema.pre("save", function (next) {
+userSchema.pre("save", function () {
   if (this.isModified("rating") && this.rating > this.maxRating) {
     this.maxRating = this.rating;
   }
-  next();
 });
 
 
