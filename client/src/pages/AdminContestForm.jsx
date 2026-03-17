@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import API from "../services/api";
 
@@ -48,11 +49,8 @@ const CSS = `
   transition:border-color 0.18s; }
 .acf-input:focus { border-color:rgba(245,158,11,0.45); box-shadow:0 0 0 3px rgba(245,158,11,0.08); }
 .acf-input::placeholder { color:var(--muted); }
-.acf-search-wrap { position:relative; z-index:1000; }
-.acf-search-results { position:absolute; top:calc(100% + 6px); left:0; right:0;
-  background:#161B22; border:1px solid #21262D; border-radius:10px;
-  z-index:9999; max-height:240px; overflow-y:auto;
-  box-shadow:0 16px 48px rgba(0,0,0,0.8); }
+.acf-search-wrap { position:relative; }
+.acf-portal-dropdown { font-family:'Outfit',sans-serif; }
 .acf-search-item { display:flex; align-items:center; justify-content:space-between; padding:12px 16px;
   cursor:pointer; transition:background 0.12s; border-bottom:1px solid #21262D; }
 .acf-search-item:last-child { border-bottom:none; }
@@ -77,7 +75,7 @@ const CSS = `
 .acf-prob-remove:hover { background:rgba(239,68,68,0.2); }
 .acf-empty { text-align:center; padding:28px; color:var(--muted); font-size:13px;
   border:1px dashed var(--border2); border-radius:10px; }
-.acf-bar { position:sticky; bottom:0; z-index:99999; background:rgba(13,17,23,0.98);
+.acf-bar { position:sticky; bottom:0; z-index:50; background:rgba(13,17,23,0.98);
   backdrop-filter:blur(12px); border-top:1px solid var(--border); padding:16px 28px;
   display:flex; align-items:center; justify-content:space-between; gap:16px; margin:0 -28px; }
 .acf-bar-info { font-size:13px; color:var(--muted); }
@@ -118,10 +116,53 @@ const toArr = (val, ...keys) => {
   return [];
 };
 
+// ✅ Portal dropdown — renders directly on document.body, never clipped
+function PortalDropdown({ anchorRef, children, visible }) {
+  const [style, setStyle] = useState({});
+
+  useEffect(() => {
+    if (!visible || !anchorRef.current) return;
+    const update = () => {
+      const rect = anchorRef.current.getBoundingClientRect();
+      // Check if there's room below; if not, show above
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const dropH = Math.min(300, spaceBelow - 16);
+      setStyle({
+        position:   "fixed",
+        top:        rect.bottom + 6,
+        left:       rect.left,
+        width:      rect.width,
+        maxHeight:  Math.max(dropH, 160),
+        overflowY:  "auto",
+        background: "#161B22",
+        border:     "1px solid #2D3748",
+        borderRadius: 10,
+        zIndex:     999999,
+        boxShadow:  "0 20px 60px rgba(0,0,0,0.9)",
+        fontFamily: "'Outfit', sans-serif",
+      });
+    };
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [visible, anchorRef]);
+
+  if (!visible) return null;
+  return createPortal(
+    <div style={style}>{children}</div>,
+    document.body
+  );
+}
+
 export default function AdminContestForm() {
-  const navigate = useNavigate();
-  const { id }   = useParams();
-  const isEdit   = Boolean(id);
+  const navigate  = useNavigate();
+  const { id }    = useParams();
+  const isEdit    = Boolean(id);
+  const inputRef  = useRef(null);
 
   const [saving,      setSaving]      = useState(false);
   const [msg,         setMsg]         = useState(null);
@@ -183,7 +224,6 @@ export default function AdminContestForm() {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // ✅ Show all when empty, filter when typing
   const filtered = allProblems.filter(p =>
     (!search.trim() || (p.title || "").toLowerCase().includes(search.toLowerCase())) &&
     !problems.find(sel => sel.problemId === p._id)
@@ -222,7 +262,6 @@ export default function AdminContestForm() {
         endTime:   new Date(form.endTime).toISOString(),
         problems:  problems.map(p => ({ problemId: p.problemId, points: p.points })),
       };
-
       if (isEdit) {
         await API.put(`/contests/${id}`, payload);
         setMsg({ type: "success", text: "Contest updated successfully!" });
@@ -325,6 +364,7 @@ export default function AdminContestForm() {
                 <label className="acf-label">Search & Add Problems</label>
                 <div className="acf-search-wrap">
                   <input
+                    ref={inputRef}
                     className="acf-input"
                     placeholder="Click or type to search all problems..."
                     value={search}
@@ -333,32 +373,31 @@ export default function AdminContestForm() {
                     onBlur={() => setTimeout(() => setShowResults(false), 200)}
                   />
 
-                  {showResults && (
-                    <div className="acf-search-results">
-                      {!search.trim() && (
-                        <div className="acf-search-hint">
-                          {allProblems.length} problems available — type to filter
-                        </div>
-                      )}
-                      {filtered.length === 0 ? (
-                        <div className="acf-no-results">
-                          {search.trim() ? "No matching problems found" : "All problems already added"}
-                        </div>
-                      ) : (
-                        filtered.map(p => {
-                          const dc = diffColor(p.difficulty);
-                          return (
-                            <div key={p._id} className="acf-search-item" onMouseDown={() => addProblem(p)}>
-                              <span className="acf-search-name">{p.title}</span>
-                              <span className="acf-search-diff" style={{ color: dc.color, background: dc.bg }}>
-                                {p.difficulty}
-                              </span>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  )}
+                  {/* ✅ Portal dropdown — renders on document.body, never clipped */}
+                  <PortalDropdown anchorRef={inputRef} visible={showResults}>
+                    {!search.trim() && (
+                      <div className="acf-search-hint">
+                        {allProblems.length} problems available — type to filter
+                      </div>
+                    )}
+                    {filtered.length === 0 ? (
+                      <div className="acf-no-results">
+                        {search.trim() ? "No matching problems found" : "All problems already added"}
+                      </div>
+                    ) : (
+                      filtered.map(p => {
+                        const dc = diffColor(p.difficulty);
+                        return (
+                          <div key={p._id} className="acf-search-item" onMouseDown={() => addProblem(p)}>
+                            <span className="acf-search-name">{p.title}</span>
+                            <span className="acf-search-diff" style={{ color: dc.color, background: dc.bg }}>
+                              {p.difficulty}
+                            </span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </PortalDropdown>
                 </div>
               </div>
 
