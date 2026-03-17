@@ -133,13 +133,32 @@ export default function AdminContestForm() {
 
   // ✅ Load all problems for search
   useEffect(() => {
-    API.get("/problems")
-      .then(r => {
+  const fetchAllProblems = async () => {
+    try {
+      let page = 1;
+      let all  = [];
+      while (true) {
+        const r    = await API.get(`/problems?page=${page}&limit=100`);
+        const d    = r.data;
+        const list = toArr(d, "problems", "data");
+        if (list.length === 0) break;
+        all = [...all, ...list];
+        // if returned less than 100 we've reached the last page
+        if (list.length < 100) break;
+        page++;
+      }
+      setAllProblems(all);
+    } catch {
+      // fallback — try without pagination
+      try {
+        const r = await API.get("/problems?limit=1000");
         const d = r.data;
         setAllProblems(toArr(d, "problems", "data"));
-      })
-      .catch(() => {});
-  }, []);
+      } catch {}
+    }
+  };
+  fetchAllProblems();
+}, []);
 
   // ✅ Load contest if editing
   useEffect(() => {
