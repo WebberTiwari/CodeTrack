@@ -72,7 +72,6 @@ const userSchema = new mongoose.Schema({
     unique:    true,
     sparse:    true,
     trim:      true,
-    default:   "",
     maxlength: [30, "Username cannot exceed 30 characters"],
   },
 

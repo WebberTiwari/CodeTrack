@@ -73,9 +73,7 @@ exports.registerUser = catchAsync(async (req, res, next) => {
   if (userExists) return next(new AppError("Email is already registered", 409));
 
   // 3. Generate unique username to avoid duplicate key error
-  const baseUsername = name.toLowerCase().replace(/\s+/g, "_");
-  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-  const username     = `${baseUsername}_${randomSuffix}`;
+  const username = `${name.toLowerCase().replace(/\s+/g, "_")}_${Date.now()}`;
 
   // 4. Hash password
   const saltRounds     = parseInt(process.env.BCRYPT_ROUNDS || "12");
