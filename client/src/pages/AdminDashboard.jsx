@@ -627,6 +627,7 @@ export default function AdminDashboard() {
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3500);
   };
 
+  // ✅ FIX 3: corrected plagiarism check endpoint from /plagiarism/contests/... to /admin/contests/...
   const handlePlagCheck = async (contestId, contestTitle) => {
     setConfirm({
       msg: `Run plagiarism check for "${contestTitle}"? Flagged users will have their scores set to 0 and will be emailed.`,
@@ -634,9 +635,12 @@ export default function AdminDashboard() {
       onConfirm: async () => {
         setConfirm(null); setPlagLoad(contestId);
         try {
-          await API.post(`/plagiarism/contests/${contestId}/check-plagiarism`);
+          await API.post(`/admin/contests/${contestId}/check-plagiarism`);
           showToast(`Plag check started for "${contestTitle}" ✓`);
-        } catch { showToast("Failed to start plagiarism check", "error"); }
+        } catch (err) {
+          const msg = err?.response?.data?.msg || err?.response?.data?.message || "Failed to start plagiarism check";
+          showToast(msg, "error");
+        }
         finally { setPlagLoad(null); }
       },
     });
@@ -670,7 +674,6 @@ export default function AdminDashboard() {
       }));
       setDebugLog(log);
 
-      // ✅ Normalize all responses — handles both [] and { users: [] } shapes
       const rawStats       = statsRes.status       === "fulfilled" ? statsRes.value.data       : {};
       const rawUsers       = usersRes.status       === "fulfilled" ? usersRes.value.data       : [];
       const rawProblems    = problemsRes.status    === "fulfilled" ? problemsRes.value.data    : [];
@@ -860,11 +863,12 @@ export default function AdminDashboard() {
   /* ── Bulk bar ── */
   const BulkBar=()=>selected.size>0?(<div className="ad-bulk-bar"><span className="ad-bulk-text">✓ {selected.size} selected</span><button className="ad-bulk-btn" onClick={bulkDelete} style={{color:"var(--red)",borderColor:"rgba(239,68,68,0.3)",background:"rgba(239,68,68,0.06)"}}>Delete Selected</button><button className="ad-bulk-btn" onClick={()=>setSelected(new Set())} style={{color:"var(--muted)",borderColor:"var(--border)",background:"transparent"}}>Clear</button></div>):null;
 
-  /* ── Quick Actions ── */
+  // ✅ FIX 1: "All Users" now switches to the users tab instead of navigating away
+  // ✅ FIX 2: "Settings" navigates to /settings (update path below to match your actual route)
   const quickActions = [
     { icon:"➕", label:"Add Problem",  sub:"Create new DSA problem",    color:"#22C55E", badge:null,  onClick:()=>navigate("/admin/problems/new") },
     { icon:"🎯", label:"New Contest",  sub:"Set up a timed contest",     color:"#F59E0B", badge:null,  onClick:()=>navigate("/admin/contests/new") },
-    { icon:"👥", label:"All Users",    sub:"View & manage accounts",     color:"#00B4D8", badge:null,  onClick:()=>navigate("/admin/users") },
+    { icon:"👥", label:"All Users",    sub:"View & manage accounts",     color:"#00B4D8", badge:null,  onClick:()=>{ setActiveTab("users"); window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"}); } },
     { icon:"📊", label:"Analytics",    sub:"Charts & deep insights",     color:"#8B5CF6", badge:null,  onClick:()=>navigate("/admin/analytics") },
     { icon:"📥", label:"Bulk Import",  sub:"Import problems via CSV",    color:"#EC4899", badge:"CSV", onClick:()=>setShowBulkImport(true) },
     { icon:"⚙️", label:"Settings",     sub:"Platform configuration",     color:"#64748B", badge:null,  onClick:()=>navigate("/admin/settings") },

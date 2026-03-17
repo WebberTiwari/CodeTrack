@@ -33,7 +33,6 @@ app.use(cors({
 
 
 // ================= 3. HELMET =================
-// Keep exactly as original — CSP disabled to not break frontend
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   contentSecurityPolicy: false,
@@ -41,7 +40,6 @@ app.use(helmet({
 
 
 // ================= 4. COMPRESSION =================
-// Gzip responses — safe, no side effects
 app.use(compression());
 
 
@@ -62,7 +60,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 
-// ================= 8. REQUEST LOGGER =================
+// ================= 7. REQUEST LOGGER =================
 if (isDev) {
   app.use(morgan("dev"));
 } else {
@@ -70,7 +68,7 @@ if (isDev) {
 }
 
 
-// ================= 9. SOCKET.IO SETUP =================
+// ================= 8. SOCKET.IO SETUP =================
 const io = new Server(server, {
   cors: {
     origin:  process.env.CORS_ORIGIN || "http://localhost:5173",
@@ -81,7 +79,7 @@ const io = new Server(server, {
 app.set("io", io);
 
 
-// ================= 10. SOCKET EVENTS =================
+// ================= 9. SOCKET EVENTS =================
 io.on("connection", (socket) => {
   console.log("⚡ User connected:", socket.id);
 
@@ -101,7 +99,7 @@ io.on("connection", (socket) => {
 });
 
 
-// ================= 11. HEALTH CHECK =================
+// ================= 10. HEALTH CHECK =================
 app.get("/", async (req, res) => {
   const mongoose = require("mongoose");
   const dbStatus = mongoose.connection.readyState === 1 ? "connected" : "disconnected";
@@ -116,7 +114,7 @@ app.get("/", async (req, res) => {
 });
 
 
-// ================= 12. IMPORT ROUTES =================
+// ================= 11. IMPORT ROUTES =================
 const authRoutes           = require("./routes/authRoutes");
 const userRoutes           = require("./routes/userRoutes");
 const problemRoutes        = require("./routes/problemRoutes");
@@ -128,12 +126,12 @@ const profileUserRoutes    = require("./routes/profileUserRoutes");
 const companyRoutes        = require("./routes/companyRoutes");
 const internalRoutes       = require("./routes/internalContestRoutes");
 const externalRoutes       = require("./routes/externalContestRoutes");
-const adminRoutes          = require("./routes/adminRoutes");
-const plagiarismRoutes     = require("./routes/plagiarismRoutes");
-const paymentRoutes        = require("./routes/paymentRoutes");   // ← NEW
+const adminRoutes          = require("./routes/adminRoutes");       // ← handles ALL /api/admin/*
+const plagiarismRoutes     = require("./routes/plagiarismRoutes");  // kept for any non-admin plag routes
+const paymentRoutes        = require("./routes/paymentRoutes");
 
 
-// ================= 13. ROUTE-SPECIFIC LIMITERS =================
+// ================= 12. ROUTE-SPECIFIC LIMITERS =================
 
 const authLimiter = rateLimit({
   windowMs:        15 * 60 * 1000,
@@ -159,9 +157,8 @@ const runLimiter = rateLimit({
   message: { success: false, message: "Too many run requests. Please wait." },
 });
 
-// Payment limiter — prevent order-spam
 const paymentLimiter = rateLimit({
-  windowMs:        60 * 60 * 1000,   // 1 hour
+  windowMs:        60 * 60 * 1000,
   max:             isDev ? 10_000 : 20,
   standardHeaders: true,
   legacyHeaders:   false,
@@ -169,10 +166,13 @@ const paymentLimiter = rateLimit({
 });
 
 
-// ================= 14. MOUNT ROUTES =================
-// ⚠️ Exact same order as original — do not change
+// ================= 13. MOUNT ROUTES =================
+// ⚠️  /api/admin must come BEFORE /api/contests so that
+//     /api/admin/contests/:id is not swallowed by contest routers
 
-app.use("/api/admin",             adminRoutes);
+app.use("/api/admin",             adminRoutes);          // covers /stats /users /problems
+                                                         // /contests /settings /cache /leaderboard
+                                                         // /plagiarism check + report + confirm + clear
 
 app.use("/api/contests/external", externalRoutes);
 app.use("/api/contests",          internalRoutes);
@@ -191,12 +191,12 @@ app.use("/api/profile-user",      profileUserRoutes);
 
 app.use("/api/company",           companyRoutes);
 app.use("/api/emails",            emailRoutes);
-app.use("/api/plagiarism",        plagiarismRoutes);
+app.use("/api/plagiarism",        plagiarismRoutes);     // kept for backward compat
 app.use("/api/ai",                require("./routes/aiRoutes"));
-app.use("/api/payment",           paymentLimiter, paymentRoutes);   // ← NEW
+app.use("/api/payment",           paymentLimiter, paymentRoutes);
 
 
-// ================= 15. 404 HANDLER =================
+// ================= 14. 404 HANDLER =================
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -205,7 +205,7 @@ app.use((req, res) => {
 });
 
 
-// ================= 16. GLOBAL ERROR HANDLER =================
+// ================= 15. GLOBAL ERROR HANDLER =================
 app.use((err, req, res, next) => {
   if (!err.statusCode || err.statusCode >= 500) {
     console.error("[Global Error]", err.message);
@@ -218,25 +218,27 @@ app.use((err, req, res, next) => {
 });
 
 
-// ================= 17. START SERVER =================
+// ================= 16. START SERVER =================
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   await connectDB();
 
   server.listen(PORT, () => {
-    console.log(`✅ Server started on port ${PORT}`);
-    console.log(`📡 API base:    http://localhost:${PORT}/api`);
-    console.log(`🏆 Contests:    http://localhost:${PORT}/api/contests`);
-    console.log(`🌐 External:    http://localhost:${PORT}/api/contests/external`);
-    console.log(`🔍 Plagiarism:  http://localhost:${PORT}/api/plagiarism`);
-    console.log(`📧 Email system active`);
-    console.log(`⚡ Socket.io enabled for live contests`);
-    console.log(`⏰ Cron job started`);
-    console.log(`🛡️  Helmet + Rate limiting + NoSQL sanitization active`);
-    console.log(`🗜️  Gzip compression active`);
-    console.log(`💳 Payment routes active`);                          // ← NEW
-    console.log(`🌍 ENV: ${process.env.NODE_ENV || "development"}`);
+    console.log(`✅  Server started on port ${PORT}`);
+    console.log(`📡  API base:         http://localhost:${PORT}/api`);
+    console.log(`🛡️   Admin:            http://localhost:${PORT}/api/admin`);
+    console.log(`⚙️   Settings:         http://localhost:${PORT}/api/admin/settings`);
+    console.log(`🔍  Plagiarism:        http://localhost:${PORT}/api/admin/contests/:id/check-plagiarism`);
+    console.log(`🏆  Contests:          http://localhost:${PORT}/api/contests`);
+    console.log(`🌐  External:          http://localhost:${PORT}/api/contests/external`);
+    console.log(`📧  Email system active`);
+    console.log(`⚡  Socket.io enabled for live contests`);
+    console.log(`⏰  Cron jobs started`);
+    console.log(`🛡️   Helmet + Rate limiting active`);
+    console.log(`🗜️   Gzip compression active`);
+    console.log(`💳  Payment routes active`);
+    console.log(`🌍  ENV: ${process.env.NODE_ENV || "development"}`);
 
     startCronJobs();
   });
@@ -245,7 +247,7 @@ const startServer = async () => {
 startServer();
 
 
-// ================= 18. GRACEFUL SHUTDOWN =================
+// ================= 17. GRACEFUL SHUTDOWN =================
 const shutdown = (signal) => {
   console.log(`\n[Shutdown] ${signal} received — closing gracefully...`);
   server.close(async () => {
