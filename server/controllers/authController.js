@@ -9,7 +9,7 @@ const AppError   = require("../utils/AppError");
 // ================= VALIDATION SCHEMAS =================
 
 const registerSchema = z.object({
-  name:     z.string().trim().min(2,  "Name must be at least 2 characters").max(50, "Name too long"),
+  name:     z.string().trim().min(2, "Name must be at least 2 characters").max(50, "Name too long"),
   email:    z.string().trim().toLowerCase().email("Invalid email address"),
   password: z.string()
     .min(8,  "Password must be at least 8 characters")
@@ -62,7 +62,7 @@ exports.registerUser = catchAsync(async (req, res, next) => {
   // 1. Validate input
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) {
-    const message = parsed.error.errors.map((e) => e.message).join(", ");
+    const message = parsed.error.issues.map((e) => e.message).join(", ");
     return next(new AppError(message, 400));
   }
 
@@ -72,22 +72,22 @@ exports.registerUser = catchAsync(async (req, res, next) => {
   const userExists = await User.findOne({ email }).lean();
   if (userExists) return next(new AppError("Email is already registered", 409));
 
-  // 3. Generate unique username to avoid duplicate key error
+  // 3. Generate unique username
   const username = `${name.toLowerCase().replace(/\s+/g, "_")}_${Date.now()}`;
 
   // 4. Hash password
   const saltRounds     = parseInt(process.env.BCRYPT_ROUNDS || "12");
   const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-  // 5. Create user — catch MongoDB duplicate key or validation errors
+  // 5. Create user
   let user;
   try {
     user = await User.create({
       name,
       email,
-      password:  hashedPassword,
+      password: hashedPassword,
       username,
-      bio:       "Competitive Programmer",
+      bio: "Competitive Programmer",
       socials: {
         codeforces: "",
         codechef:   "",
@@ -97,18 +97,20 @@ exports.registerUser = catchAsync(async (req, res, next) => {
       },
     });
   } catch (err) {
-    // MongoDB duplicate key error (code 11000)
+    console.error("REGISTER ERROR:", err);
+
     if (err.code === 11000) {
       const field = Object.keys(err.keyPattern || {})[0] || "field";
       return next(new AppError(`${field} is already taken`, 409));
     }
-    // Mongoose validation error
+
     if (err.name === "ValidationError") {
       const message = Object.values(err.errors).map((e) => e.message).join(", ");
       return next(new AppError(message, 400));
     }
-   console.error("REGISTER ERROR:", err);  // 👈 VERY IMPORTANT
-return next(new AppError(err.message, 500));
+
+    return next(new AppError(err.message, 500));
+  }
 
   // 6. Issue tokens
   const accessToken  = generateAccessToken(user._id, user.role);
@@ -128,7 +130,7 @@ return next(new AppError(err.message, 500));
 exports.loginUser = catchAsync(async (req, res, next) => {
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) {
-    const message = parsed.error.errors.map((e) => e.message).join(", ");
+    const message = parsed.error.issues.map((e) => e.message).join(", ");
     return next(new AppError(message, 400));
   }
 
@@ -174,7 +176,7 @@ exports.refreshToken = catchAsync(async (req, res, next) => {
   res.cookie("refreshToken", newRefreshToken, COOKIE_OPTIONS);
 
   res.json({
-    success:     true,
+    success: true,
     accessToken: newAccessToken,
   });
 });
