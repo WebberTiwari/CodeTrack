@@ -18,7 +18,8 @@ import AnalyticsDashboard from "./pages/AnalyticsDashboard";
 import LiveContestMonitor from "./pages/LiveContestMonitor";
 import PlagiarismReview from "./pages/PlagiarismReview";
 import PricingPage from "./pages/PricingPage";
-import AdminSettings from "./pages/AdminSettings";   // ← NEW
+import AdminSettings from "./pages/AdminSettings";
+import ResumePage from "./pages/ResumePage";       // ← NEW
 
 const PrivateRoute = ({ children }) => {
   const token = localStorage.getItem("accessToken");
@@ -41,7 +42,7 @@ export default function App() {
         <Route path="/"      element={<Home />} />
         <Route path="/login" element={<Login />} />
 
-        {/* ── Public but better when logged in ── */}
+        {/* ── Public ── */}
         <Route path="/pricing" element={<PricingPage />} />
 
         {/* ── Private routes ── */}
@@ -53,6 +54,7 @@ export default function App() {
         <Route path="/profile"              element={<PrivateRoute><Profile /></PrivateRoute>} />
         <Route path="/submission/:id"       element={<PrivateRoute><SubmissionDetail /></PrivateRoute>} />
         <Route path="/contest-arena/:id"    element={<PrivateRoute><ContestArena /></PrivateRoute>} />
+        <Route path="/resume"               element={<PrivateRoute><ResumePage /></PrivateRoute>} />  {/* ← NEW */}
 
         {/* ── Admin routes ── */}
         <Route path="/admin"                                  element={<AdminRoute><AdminDashboard /></AdminRoute>} />
@@ -61,7 +63,7 @@ export default function App() {
         <Route path="/admin/problems/edit/:id"                element={<AdminRoute><AdminProblemForm /></AdminRoute>} />
         <Route path="/admin/contests/new"                     element={<AdminRoute><AdminContestForm /></AdminRoute>} />
         <Route path="/admin/contests/edit/:id"                element={<AdminRoute><AdminContestForm /></AdminRoute>} />
-        <Route path="/admin/settings"                         element={<AdminRoute><AdminSettings /></AdminRoute>} />  {/* ← NEW */}
+        <Route path="/admin/settings"                         element={<AdminRoute><AdminSettings /></AdminRoute>} />
         <Route path="/admin/analytics"                        element={<AnalyticsDashboard />} />
         <Route path="/admin/contests/live/:id"                element={<LiveContestMonitor />} />
         <Route path="/admin/plagiarism-review/:contestId"     element={<PlagiarismReview />} />

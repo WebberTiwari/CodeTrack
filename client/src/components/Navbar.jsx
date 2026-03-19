@@ -92,6 +92,20 @@ const CSS = `
   box-shadow: 0 0 8px rgba(34,197,94,0.5);
 }
 
+/* ── resume NEW badge ── */
+.nb-new-tag {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.8px;
+  text-transform: uppercase; padding: 1px 5px; border-radius: 4px;
+  background: rgba(34,197,94,0.15); color: var(--green);
+  border: 1px solid rgba(34,197,94,0.3);
+  margin-left: 5px; vertical-align: middle;
+  animation: newPulse 2s ease-in-out infinite;
+}
+@keyframes newPulse {
+  0%,100% { opacity:1; }
+  50%      { opacity:0.6; }
+}
+
 /* ── admin badge in links ── */
 .nb-admin-tag {
   font-size: 9px; font-weight: 700; letter-spacing: 0.8px;
@@ -193,6 +207,18 @@ const CSS = `
 .nb-dd-item.danger:hover { background: rgba(239,68,68,0.08); }
 .nb-dd-item-icon { font-size: 15px; width: 20px; text-align: center; }
 
+/* resume highlight item in dropdown */
+.nb-dd-item.resume-item {
+  border-left: 2px solid rgba(34,197,94,0.4);
+  background: rgba(34,197,94,0.04);
+}
+.nb-dd-item.resume-item:hover { background: rgba(34,197,94,0.08); }
+.nb-dd-resume-badge {
+  font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px;
+  background: rgba(34,197,94,0.15); color: var(--green);
+  border: 1px solid rgba(34,197,94,0.3); margin-left: auto;
+}
+
 .nb-dd-divider { height: 1px; background: var(--border); margin: 2px 0; }
 
 /* admin section label */
@@ -209,12 +235,14 @@ const USER_LINKS = [
   { label: "Arena",            path: "/contests-list" },
   { label: "External Tracker", path: "/contests"      },
   { label: "Problems",         path: "/problems"      },
+  { label: "Resume",           path: "/resume", isNew: true }, // ← NEW
 ];
 
 const ADMIN_LINKS = [
   { label: "Home",         path: "/"                  },
   { label: "Arena",        path: "/contests-list"     },
   { label: "Problems",     path: "/problems"          },
+  { label: "Resume",       path: "/resume", isNew: true }, // ← NEW
   { label: "Dashboard",    path: "/admin/dashboard", admin: true },
   { label: "Manage Users", path: "/admin/users",     admin: true },
 ];
@@ -233,12 +261,12 @@ export default function Navbar() {
 
   // Re-read localStorage on every route change
   useEffect(() => {
-    const token = localStorage.getItem("accessToken"); // ← FIXED: was "refreshToken"
+    const token = localStorage.getItem("accessToken");
     const name  = localStorage.getItem("username") || "";
     const em    = localStorage.getItem("email")    || "";
     const r     = localStorage.getItem("role")     || "user";
 
-    setLoggedIn(!!token); // ← FIXED: was !!Token (capital T typo)
+    setLoggedIn(!!token);
     setUsername(name);
     setEmail(em);
     setRole(r);
@@ -256,7 +284,6 @@ export default function Navbar() {
 
   const logout = async () => {
     try {
-      // Clear refresh token cookie on server
       await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/auth/logout`, {
         method: "POST",
         credentials: "include",
@@ -288,14 +315,15 @@ export default function Navbar() {
 
         {/* Nav links */}
         <div className="nb-links">
-          {links.map(({ label, path, admin }) => (
+          {links.map(({ label, path, admin, isNew }) => (
             <Link
               key={path}
               to={path}
               className={`nb-link ${isActive(path) ? "active" : ""}`}
             >
               {label}
-              {admin && <span className="nb-admin-tag">Admin</span>}
+              {isNew  && <span className="nb-new-tag">New</span>}
+              {admin  && <span className="nb-admin-tag">Admin</span>}
             </Link>
           ))}
         </div>
@@ -334,6 +362,13 @@ export default function Navbar() {
                   </Link>
                   <Link to="/contests-list" className="nb-dd-item" onClick={() => setOpen(false)}>
                     <span className="nb-dd-item-icon">🏆</span> My Contests
+                  </Link>
+
+                  {/* ── Resume Builder — highlighted entry ── */}
+                  <Link to="/resume" className="nb-dd-item resume-item" onClick={() => setOpen(false)}>
+                    <span className="nb-dd-item-icon">📄</span>
+                    Resume Builder
+                    <span className="nb-dd-resume-badge">New</span>
                   </Link>
 
                   {/* admin-only section */}
